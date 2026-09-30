@@ -15,10 +15,7 @@
 
 ## 📦 Что внутри
 
-- 📋 **[Test Plan](docs/test-plan.md)** — стратегия, scope, риски, расписание
 - 📝 **[Test Cases](test-cases/)** — структурированные тест-кейсы в стандартном формате
-- 🐛 **[Bug Reports](bug-reports/)** — найденные баги в формате шаблона
-- 🔍 **[Exploratory Charters](docs/exploratory-charters.md)** — сессии исследования
 - 🧪 **[Postman Collection](postman/)** — API тесты
 
 ## 📊 Метрики проекта

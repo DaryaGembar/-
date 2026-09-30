@@ -1,0 +1,1119 @@
+{
+  "info": {
+    "_postman_id": "c7a7f9fc-2150-46c7-bef6-671bf8e1c59f",
+    "name": "Пиццаед",
+    "description": "Коллекция для ручного тестирования и документирования API учебного интернет-магазина «Пиццаед» (aiqa.su/base/shop).\n\n## Сценарии\n\n- Каталог товаров с фильтрами по названию, категории и наличию\n    \n- Корзина: добавить / изменить количество / удалить\n    \n- Заказ с промокодом QA60 (10% скидка) и расчётом доставки\n    \n\n## Бизнес-правила\n\n- Промокод QA60 = 10% скидка (case-insensitive, trim)\n    \n- Доставка: 199₽ при items < 1500₽, бесплатно при ≥ 1500₽\n    \n- Скидка округляется вниз до целых рублей\n    \n- Количество в корзине: 1-20, при 0 товар удаляется\n    \n- Чизкейк — пример out-of-stock товара\n    \n\n## Авторизация\n\nУчебная сессия передаётся заголовком `X-Course-Session:` — можно получить при регистрации или использовать любой UUID для изоляции.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "46035266",
+    "_collection_link": "https://go.postman.co/collection/46035266-c7a7f9fc-2150-46c7-bef6-671bf8e1c59f?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "GET /products — список всех товаров",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Проверяем, что получили 200 и массив",
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(Array.isArray(json)).to.be.true;",
+                  "});",
+                  "",
+                  "// Если есть товары — проверяем структуру первого",
+                  "pm.test('First product has required fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    if (json.length > 0) {",
+                  "        const product = json[0];",
+                  "        pm.expect(product).to.have.property('id');",
+                  "        pm.expect(product).to.have.property('name');",
+                  "        pm.expect(product).to.have.property('price');",
+                  "        pm.expect(product).to.have.property('in_stock');",
+                  "    }",
+                  "});",
+                  "",
+                  "// Сохраняем первый ID товара в переменную коллекции",
+                  "if (pm.response.json().length > 0) {",
+                  "    pm.collectionVariables.set('product_id', pm.response.json()[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "products"
+              ]
+            },
+            "description": "Возвращает массив товаров. Поля: id, name, category, description, price, rating, badges, in_stock"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products — поиск по названию (маргарита)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Search returns matches', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.length).to.be.greaterThan(0);",
+                  "    json.forEach(item => {",
+                  "        const text = (item.name + ' ' + item.description + ' ' + (item.badges || []).join(' ')).toLowerCase();",
+                  "        pm.expect(text).to.include('соус');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/products?q=соус",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "соус",
+                  "description": "Поиск по 'соус' должен найти товары с этим словом в названии, описании или бейджах — по требованию независимо от категории"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products — фильтр по категории (category=pizza)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('All items match category', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    json.forEach(item => {",
+                  "        pm.expect(item.category).to.eql('pizza');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/products?category=pizza",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "pizza",
+                  "description": "Возможные значения: pizza, drink, dessert, sauce"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products — фильтр  (только в наличии)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('All items are in stock', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    json.forEach(item => {",
+                  "        pm.expect(item.in_stock).to.be.true;",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/products?in_stock=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "in_stock",
+                  "value": "true",
+                  "description": "true = только в наличии, false = только нет в наличии, без параметра = все"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products/{id} — один товар",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 for existing product', function () {",
+                  "    if (pm.response.code === 404) {",
+                  "        console.log('Product not found — сначала вызови GET /products чтобы заполнить {{product_id}}');",
+                  "    } else {",
+                  "        pm.response.to.have.status(200);",
+                  "        const json = pm.response.json();",
+                  "        pm.expect(json).to.have.property('id');",
+                  "        pm.expect(json).to.have.property('name');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "products",
+                "{{product_id}}"
+              ]
+            },
+            "description": "Подставь реальный ID из GET /products. Если ID не существует — 404"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /products/{id} — несуществующий ID → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Non-existent product returns 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/products/non-existent-id-99999",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "products",
+                "non-existent-id-99999"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Эндпоинты для получения товаров. Поддерживают фильтры: q (поиск), category, in_stock"
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "GET /cart — текущая корзина",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cart response structure', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('items');",
+                  "    pm.expect(json).to.have.property('subtotal');",
+                  "    pm.expect(json).to.have.property('total');",
+                  "    pm.expect(Array.isArray(json.items)).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "cart"
+              ]
+            },
+            "description": "Возвращает items[], subtotal, discount, delivery, total"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /cart — добавить товар",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Item added — status 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Cart now contains the item', function () {",
+                  "    pm.collectionVariables.set('session_id', pm.request.headers.get('X-Course-Session'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{product_id}}\",\n  \"quantity\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "cart"
+              ]
+            },
+            "description": "Добавляет товар в корзину. Возвращает 201. Если товар out-of-stock — 422 (например, Чизкейк)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /cart — добавить out-of-stock товар → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Out-of-stock returns 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test('Error has meaningful message', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(JSON.stringify(json).toLowerCase()).to.include('stock');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"cheesecake\",\n  \"quantity\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "cart"
+              ]
+            },
+            "description": "Чизкейк — тестовый out-of-stock товар. Должен вернуть 422"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /cart/{productId} — изменить количество",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status 200 on update', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/cart/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "cart",
+                "{{product_id}}"
+              ]
+            },
+            "description": "Меняет количество товара. Допустимо 1-20. При 0 — товар удаляется. Требуется сначала добавить товар через POST /cart"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /cart/{productId} — quantity = 0 (удаление)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Item removed when quantity = 0', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 0\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/cart/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "cart",
+                "{{product_id}}"
+              ]
+            },
+            "description": "По требованию: при quantity = 0 товар удаляется из корзины"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH /cart/{productId} — quantity = 21 (вне диапазона)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Out of range returns 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 21\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/cart/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "cart",
+                "{{product_id}}"
+              ]
+            },
+            "description": "Максимум 20. 21 должна вернуть 422 (по бизнес-правилам)"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /cart/{productId} — удалить товар",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Delete returns 200 or 204', function () {",
+                  "    pm.expect([200, 204]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/cart/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "cart",
+                "{{product_id}}"
+              ]
+            },
+            "description": "Удаляет товар из корзины"
+          },
+          "response": []
+        }
+      ],
+      "description": "Работа с корзиной: добавить товар, изменить количество (1-20), удалить. Сессия через X-Course-Session"
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "POST /orders — создать заказ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Order created — status 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Order has id and status', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('status');",
+                  "    pm.expect(json.status).to.eql('created');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Светлана Иванова\",\n  \"phone\": \"+7 900 000-00-00\",\n  \"address\": \"Москва, ул. Тестировщиков, 7\",\n  \"promo_code\": \"QA60\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "orders"
+              ]
+            },
+            "description": "Создаёт заказ. Тело обязательно: customer_name, phone, address. promo_code опционален. Требуется непустая корзина. После создания возвращает 201 и инфо о заказе."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /orders — без промокода",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Светлана Иванова\",\n  \"phone\": \"+7 900 000-00-00\",\n  \"address\": \"Москва, ул. Тестировщиков, 7\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "orders"
+              ]
+            },
+            "description": "Создание заказа без промокода. Скидка = 0, доставка по правилам (199₽ или 0)."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /orders — пустая корзина → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Empty cart returns 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Светлана Иванова\",\n  \"phone\": \"+7 900 000-00-00\",\n  \"address\": \"Москва, ул. Тестировщиков, 7\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "orders"
+              ]
+            },
+            "description": "По требованию: попытка оформить пустую корзину показывает popup с ошибкой. Ожидаем 422."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /orders — без обязательных полей → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Missing fields returns 422', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "orders"
+              ]
+            },
+            "description": "Без телефона и адреса. По требованию ошибки валидации — 422."
+          },
+          "response": []
+        }
+      ],
+      "description": "Создание заказа из корзины. Тело включает имя, телефон, адрес. После успешного создания корзина очищается."
+    },
+    {
+      "name": "E2E",
+      "item": [
+        {
+          "name": "1. Создать новую сессию (генерация UUID)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Генерируем новый UUID для изоляции",
+                  "function uuidv4() {",
+                  "  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {",
+                  "    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);",
+                  "    return v.toString(16);",
+                  "  });",
+                  "}",
+                  "pm.collectionVariables.set('session_id', uuidv4());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "httpbin.org/get",
+              "host": [
+                "httpbin",
+                "org"
+              ],
+              "path": [
+                "get"
+              ]
+            },
+            "description": "Просто placeholder запрос, чтобы выполнился pre-request script, генерирующий UUID в session_id"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Получить список товаров",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/products?in_stock=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "in_stock",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "3. Добавить первый товар в корзину",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{product_id}}\",\n  \"quantity\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "cart"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "4. Проверить корзину",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cart has items', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.items.length).to.be.greaterThan(0);",
+                  "    pm.expect(json.subtotal).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/cart",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "cart"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "5. Оформить заказ с промокодом",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Order created with promo', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('created');",
+                  "    pm.expect(json.discount).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Course-Session",
+                "value": "{{session_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_name\": \"Светлана Иванова\",\n  \"phone\": \"+7 900 000-00-00\",\n  \"address\": \"Москва, ул. Тестировщиков, 7\",\n  \"promo_code\": \"QA60\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/course/v1/shop/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "course",
+                "v1",
+                "shop",
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Сквозной сценарий для запуска в Collection Runner. Создаёт новую сессию, добавляет товар в корзину, оформляет заказ."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://aiqa.su",
+      "description": "Базовый URL API"
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "description": "ID учебной сессии (X-Course-Session). Сгенерируй любой UUID, например, через https://www.uuidgenerator.net/"
+    },
+    {
+      "key": "product_id",
+      "value": "",
+      "description": "ID тестового товара (подставится из GET /products)"
+    }
+  ]
+}
